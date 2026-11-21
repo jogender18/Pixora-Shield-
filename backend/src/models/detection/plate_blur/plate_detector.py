@@ -10,7 +10,7 @@ class PlateDetector:
         self.model = None
         self.previous_regions = []
         self.missed_frames = 0
-        self.max_missed_frames = 8
+        self.max_missed_frames = 3
         if self.weights_path and Path(self.weights_path).is_file():
             try:
                 from ultralytics import YOLO
@@ -33,22 +33,49 @@ class PlateDetector:
         frame_area = height * width
         for contour in contours:
             x, y, box_width, box_height = cv2.boundingRect(contour)
-            if box_width < 55 or box_height < 18:
+            if box_width < 70 or box_height < 20:
                 continue
 
             aspect = box_width / float(box_height)
             area = box_width * box_height
-            if not 1.8 <= aspect <= 6.5:
+            if not 2.2 <= aspect <= 6.0:
                 continue
-            if not 0.0004 * frame_area <= area <= 0.14 * frame_area:
+            if not 0.0008 * frame_area <= area <= 0.06 * frame_area:
                 continue
 
             contour_area = cv2.contourArea(contour)
-            if contour_area / max(area, 1) < 0.18:
+            if contour_area / max(area, 1) < 0.25:
                 continue
 
-            padding_x = int(box_width * 0.06)
-            padding_y = int(box_height * 0.12)
+            roi = gray[y:y + box_height, x:x + box_width]
+            if roi.size == 0:
+                continue
+
+            roi_std = float(cv2.meanStdDev(roi)[1][0][0])
+            if roi_std < 18:
+                continue
+
+            _, threshold = cv2.threshold(
+                roi,
+                0,
+                255,
+                cv2.THRESH_BINARY + cv2.THRESH_OTSU,
+            )
+            text_contours, _ = cv2.findContours(
+                threshold,
+                cv2.RETR_EXTERNAL,
+                cv2.CHAIN_APPROX_SIMPLE,
+            )
+            text_parts = 0
+            for text_contour in text_contours:
+                tx, ty, tw, th = cv2.boundingRect(text_contour)
+                if 3 <= tw <= box_width * 0.22 and 5 <= th <= box_height * 0.75:
+                    text_parts += 1
+            if text_parts < 3:
+                continue
+
+            padding_x = int(box_width * 0.03)
+            padding_y = int(box_height * 0.08)
             regions.append([
                 max(0, x - padding_x),
                 max(0, y - padding_y),
@@ -59,7 +86,24 @@ class PlateDetector:
         regions.sort(key=lambda region: (
             (region[2] - region[0]) * (region[3] - region[1])
         ), reverse=True)
-        return regions[:8]
+        filtered = []
+        for region in regions:
+            duplicate = False
+            x1, y1, x2, y2 = region
+            for kept in filtered:
+                px1, py1, px2, py2 = kept
+                ix1, iy1 = max(x1, px1), max(y1, py1)
+                ix2, iy2 = min(x2, px2), min(y2, py2)
+                intersection = max(0, ix2 - ix1) * max(0, iy2 - iy1)
+                area = max(1, (x2 - x1) * (y2 - y1))
+                kept_area = max(1, (px2 - px1) * (py2 - py1))
+                iou = intersection / (area + kept_area - intersection)
+                if iou > 0.25:
+                    duplicate = True
+                    break
+            if not duplicate:
+                filtered.append(region)
+        return filtered[:2]
 
     def reset(self):
         self.previous_regions = []

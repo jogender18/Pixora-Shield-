@@ -35,6 +35,15 @@ class PlateDetectorTest(unittest.TestCase):
         detector = PlateDetector()
         plate_frame = np.full((480, 640, 3), 220, dtype=np.uint8)
         cv2.rectangle(plate_frame, (220, 300), (420, 350), (20, 20, 20), -1)
+        cv2.putText(
+            plate_frame,
+            "ABC123",
+            (235, 340),
+            cv2.FONT_HERSHEY_SIMPLEX,
+            1.0,
+            (245, 245, 245),
+            2,
+        )
 
         _, first_regions = detector.process_frame(plate_frame, 0)
         _, missed_regions = detector.process_frame(
