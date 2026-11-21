@@ -6,6 +6,22 @@ from backend.src.models.detection.plate_blur.plate_detector import PlateDetector
 
 
 class PlateDetectorTest(unittest.TestCase):
+    def test_fallback_rejects_square_screen_candidate(self):
+        frame = np.full((720, 1280, 3), 180, dtype=np.uint8)
+        cv2.rectangle(frame, (300, 350), (500, 550), (30, 30, 30), -1)
+
+        _, regions = PlateDetector().process_frame(frame, 0)
+
+        self.assertFalse(
+            any(
+                region[0] <= 300
+                and region[1] <= 350
+                and region[2] >= 500
+                and region[3] >= 550
+                for region in regions
+            )
+        )
+
     def test_fallback_does_not_treat_large_screen_as_plate(self):
         frame = np.full((720, 1280, 3), 180, dtype=np.uint8)
         cv2.rectangle(frame, (380, 390), (900, 650), (30, 30, 30), -1)

@@ -428,6 +428,11 @@ def process_video():
             ]
         face_regions = face_tracker.update(padded_face_regions)
         _, plate_regions = plate_detector.process_frame(frame, frame_id)
+        plate_regions = [
+            plate for plate in plate_regions
+            if (main_face is None or overlap_ratio(main_face, plate) < 0.20)
+            and not any(overlap_ratio(face, plate) >= 0.20 for face in face_regions)
+        ]
         pii_regions = detect_pii_regions(frame, frame_id)
         regions = face_regions + plate_regions + pii_regions
         regions = deduplicate_blur_regions(regions)
