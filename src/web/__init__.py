@@ -1,1 +1,0 @@
-"""Pixora web application."""

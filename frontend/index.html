@@ -1,0 +1,82 @@
+<!doctype html>
+<html lang="en">
+  <head>
+    <meta charset="UTF-8" />
+    <meta name="viewport" content="width=device-width, initial-scale=1.0" />
+    <title>Pixora Shield</title>
+    <link rel="stylesheet" href="./styles.css" />
+  </head>
+  <body>
+    <main>
+      <nav>
+        <div class="brand"><span class="brandMark">P</span> PIXORA SHIELD</div>
+        <span class="status"><i></i> Local privacy engine</span>
+      </nav>
+
+      <section class="hero">
+        <p class="eyebrow">VIDEO PRIVACY MVP</p>
+        <h1>Protect every face.<br /><em>Keep every moment.</em></h1>
+        <p class="lede">
+          Upload a video and Pixora Shield removes identifiable faces and, when
+          configured, license plates before you share it.
+        </p>
+      </section>
+
+      <section class="workspace">
+        <div class="uploadPanel">
+          <label class="dropzone" id="dropzone">
+            <input id="videoInput" type="file" accept="video/*" />
+            <div class="uploadIcon">↑</div>
+            <strong id="fileName">Choose a video</strong>
+            <span id="fileSize">MP4, MOV, AVI, MKV or WebM</span>
+          </label>
+          <button class="processButton" id="processButton" disabled>
+            Blur &amp; protect video
+          </button>
+          <p class="error" id="error" hidden></p>
+        </div>
+
+        <div class="privacyCard" id="privacyCard">
+          <p class="eyebrow">PRIVACY BY DESIGN</p>
+          <h2>Nothing leaves the demo environment.</h2>
+          <p>
+            Uploaded and processed videos are served only from the local API.
+            Keep files on this machine and remove them after the demo.
+          </p>
+          <ol>
+            <li><span>01</span><div><strong>Detect</strong><small>Faces and optional plate regions</small></div></li>
+            <li><span>02</span><div><strong>Blur</strong><small>Gaussian privacy masks</small></div></li>
+            <li><span>03</span><div><strong>Export</strong><small>Download a processed MP4</small></div></li>
+          </ol>
+        </div>
+
+        <div class="results" id="results" hidden>
+          <div class="resultHeading">
+            <div>
+              <p class="eyebrow">PROCESSING COMPLETE</p>
+              <h2>Your protected video</h2>
+            </div>
+            <a class="download" id="downloadLink" download>Download MP4</a>
+          </div>
+          <div class="comparison">
+            <div>
+              <span>BEFORE</span>
+              <video id="beforeVideo" controls muted></video>
+            </div>
+            <div>
+              <span>PROTECTED</span>
+              <video id="afterVideo" controls muted></video>
+            </div>
+          </div>
+          <div class="metrics" id="metrics"></div>
+          <p class="note" id="plateNote" hidden>
+            Face protection is active. Plate protection becomes active when
+            <code> PLATE_MODEL_PATH</code> is configured.
+          </p>
+        </div>
+      </section>
+    </main>
+
+    <script src="./app.js"></script>
+  </body>
+</html>

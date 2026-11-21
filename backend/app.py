@@ -12,9 +12,9 @@ from src.models.detection.blur_utils import apply_blur_regions
 from src.models.detection.plate_blur.plate_detector import PlateDetector
 
 
-BASE_DIR = Path(__file__).resolve().parents[3]
-UPLOAD_DIR = BASE_DIR / "uploads"
-OUTPUT_DIR = BASE_DIR / "outputs"
+BACKEND_DIR = Path(__file__).resolve().parent
+UPLOAD_DIR = BACKEND_DIR / "uploads"
+OUTPUT_DIR = BACKEND_DIR / "outputs"
 UPLOAD_DIR.mkdir(parents=True, exist_ok=True)
 OUTPUT_DIR.mkdir(parents=True, exist_ok=True)
 
@@ -24,7 +24,7 @@ CORS(app, origins=os.getenv("CORS_ALLOWED_ORIGINS", "http://localhost:3000").spl
 def find_face_cascade():
     candidates = []
     candidates.append(
-        str(BASE_DIR / "models" / "haarcascade_frontalface_default.xml")
+        str(BACKEND_DIR / "models" / "haarcascade_frontalface_default.xml")
     )
     if hasattr(cv2, "data"):
         candidates.append(
