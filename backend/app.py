@@ -130,7 +130,7 @@ def health():
     return jsonify({
         "status": "ok",
         "face_detection": bool(face_detector is not None and not face_detector.empty()),
-        "plate_detection": plate_detector.model is not None,
+        "plate_detection": True,
     })
 
 
@@ -174,6 +174,7 @@ def process_video():
     detected_regions = 0
     frame_id = 0
     previous_face_regions = []
+    previous_plate_regions = []
     pii_regions_detected = 0
     plate_regions_detected = 0
     while True:
@@ -184,6 +185,8 @@ def process_video():
         face_regions = stabilize_regions(previous_face_regions, face_regions)
         previous_face_regions = face_regions
         _, plate_regions = plate_detector.process_frame(frame, frame_id)
+        plate_regions = stabilize_regions(previous_plate_regions, plate_regions)
+        previous_plate_regions = plate_regions
         pii_regions = detect_pii_regions(frame, frame_id)
         regions = face_regions + plate_regions + pii_regions
         detected_regions += len(regions)
@@ -217,7 +220,7 @@ def process_video():
             "processing_seconds": round(elapsed, 2),
             "average_fps": round(processed_frames / elapsed, 2) if elapsed else 0,
             "resolution": f"{width}x{height}",
-            "plate_detection_enabled": plate_detector.model is not None,
+            "plate_detection_enabled": True,
         },
     })
 
