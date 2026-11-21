@@ -10,20 +10,16 @@
     <main>
       <nav>
         <div class="brand"><span class="brandMark">P</span> PIXORA SHIELD</div>
-        <span class="status"><i></i> Local privacy engine</span>
+        <span class="status"><i></i> Video privacy model</span>
       </nav>
 
-      <section class="hero">
-        <p class="eyebrow">VIDEO PRIVACY MVP</p>
-        <h1>Protect every face.<br /><em>Keep every moment.</em></h1>
-        <p class="lede">
-          Upload a video and Pixora Shield removes identifiable faces and, when
-          configured, license plates before you share it.
-        </p>
-      </section>
+      <header class="titleBlock">
+        <p class="eyebrow">AUTOMATED PRIVACY PIPELINE</p>
+        <h1>Video privacy <em>model</em></h1>
+      </header>
 
-      <section class="workspace">
-        <div class="uploadPanel">
+      <section class="modelFlow">
+        <aside class="sourcePanel">
           <label class="dropzone" id="dropzone">
             <input id="videoInput" type="file" accept="video/*" />
             <div class="uploadIcon">↑</div>
@@ -31,49 +27,47 @@
             <span id="fileSize">MP4, MOV, AVI, MKV or WebM</span>
           </label>
           <button class="processButton" id="processButton" disabled>
-            Blur &amp; protect video
+            Process video
           </button>
           <p class="error" id="error" hidden></p>
-        </div>
+        </aside>
 
-        <div class="privacyCard" id="privacyCard">
-          <p class="eyebrow">PRIVACY BY DESIGN</p>
-          <h2>Nothing leaves the demo environment.</h2>
-          <p>
-            Uploaded and processed videos are served only from the local API.
-            Keep files on this machine and remove them after the demo.
-          </p>
-          <ol>
-            <li><span>01</span><div><strong>Detect</strong><small>Faces and optional plate regions</small></div></li>
-            <li><span>02</span><div><strong>Blur</strong><small>Gaussian privacy masks</small></div></li>
-            <li><span>03</span><div><strong>Export</strong><small>Download a processed MP4</small></div></li>
-          </ol>
-        </div>
+        <aside class="pipelinePanel">
+          <p class="panelLabel">DETECTION FLOW</p>
+          <div class="stage active" data-stage="faces">
+            <span>01</span><div><strong>Face detection</strong><small>OpenCV / cascade</small></div>
+          </div>
+          <div class="stage" data-stage="plates">
+            <span>02</span><div><strong>Plate detection</strong><small>YOLOv11, optional</small></div>
+          </div>
+          <div class="stage" data-stage="pii">
+            <span>03</span><div><strong>PII detection</strong><small>OCR + text patterns</small></div>
+          </div>
+          <div class="stage" data-stage="blur">
+            <span>04</span><div><strong>Blur compositor</strong><small>Gaussian privacy mask</small></div>
+          </div>
+        </aside>
 
-        <div class="results" id="results" hidden>
-          <div class="resultHeading">
-            <div>
-              <p class="eyebrow">PROCESSING COMPLETE</p>
-              <h2>Your protected video</h2>
-            </div>
-            <a class="download" id="downloadLink" download>Download MP4</a>
+        <section class="outputPanel">
+          <div class="outputHeading">
+            <p class="panelLabel">RESULT</p>
+            <a class="download" id="downloadLink" download hidden>Download MP4</a>
           </div>
-          <div class="comparison">
-            <div>
-              <span>BEFORE</span>
-              <video id="beforeVideo" controls muted></video>
+          <div class="emptyResult" id="emptyResult">
+            <div class="previewGrid">
+              <div></div><div></div><div></div><div></div>
             </div>
-            <div>
-              <span>PROTECTED</span>
-              <video id="afterVideo" controls muted></video>
-            </div>
+            <p>Processed frames and metrics will appear here.</p>
           </div>
-          <div class="metrics" id="metrics"></div>
-          <p class="note" id="plateNote" hidden>
-            Face protection is active. Plate protection becomes active when
-            <code> PLATE_MODEL_PATH</code> is configured.
-          </p>
-        </div>
+          <div class="results" id="results" hidden>
+            <div class="comparison">
+              <div><span>BEFORE</span><video id="beforeVideo" controls muted></video></div>
+              <div><span>PROTECTED</span><video id="afterVideo" controls muted></video></div>
+            </div>
+            <div class="metrics" id="metrics"></div>
+            <p class="note" id="pipelineNote"></p>
+          </div>
+        </section>
       </section>
     </main>
 

@@ -6,15 +6,33 @@ const fileName = document.querySelector("#fileName");
 const fileSize = document.querySelector("#fileSize");
 const processButton = document.querySelector("#processButton");
 const error = document.querySelector("#error");
-const privacyCard = document.querySelector("#privacyCard");
 const results = document.querySelector("#results");
+const emptyResult = document.querySelector("#emptyResult");
 const beforeVideo = document.querySelector("#beforeVideo");
 const afterVideo = document.querySelector("#afterVideo");
 const downloadLink = document.querySelector("#downloadLink");
 const metrics = document.querySelector("#metrics");
-const plateNote = document.querySelector("#plateNote");
+const pipelineNote = document.querySelector("#pipelineNote");
 
 let selectedFile = null;
+
+function stagesProcessing() {
+  const stages = [...document.querySelectorAll(".stage")];
+  stages.forEach((stage, index) => {
+    stage.classList.toggle("active", index === 0);
+  });
+  let index = 0;
+  const timer = window.setInterval(() => {
+    stages[index]?.classList.remove("active");
+    stages[index]?.classList.add("complete");
+    index += 1;
+    if (index < stages.length) {
+      stages[index]?.classList.add("active");
+    } else {
+      window.clearInterval(timer);
+    }
+  }, 500);
+}
 
 function selectFile(file) {
   if (!file) return;
@@ -26,7 +44,9 @@ function selectFile(file) {
   processButton.textContent = "Blur & protect video";
   error.hidden = true;
   results.hidden = true;
-  privacyCard.hidden = false;
+  emptyResult.hidden = false;
+  downloadLink.hidden = true;
+  document.querySelectorAll(".stage").forEach((stage) => stage.classList.remove("complete"));
   beforeVideo.src = URL.createObjectURL(file);
 }
 
@@ -56,6 +76,8 @@ processButton.addEventListener("click", async () => {
   processButton.innerHTML = '<span class="spinner"></span> Processing video';
   error.hidden = true;
   results.hidden = true;
+  emptyResult.hidden = false;
+  stagesProcessing();
 
   const form = new FormData();
   form.append("video", selectedFile);
@@ -84,9 +106,11 @@ processButton.addEventListener("click", async () => {
       `<div><strong>${value}</strong><span>${label}</span></div>`
     ).join("");
 
-    plateNote.hidden = data.metrics.plate_detection_enabled;
-    privacyCard.hidden = true;
+    pipelineNote.textContent = data.pipeline_summary || "Privacy regions have been blurred in the processed video.";
+    emptyResult.hidden = true;
+    downloadLink.hidden = false;
     results.hidden = false;
+    document.querySelectorAll(".stage").forEach((stage) => stage.classList.add("complete"));
   } catch (caught) {
     error.textContent = caught instanceof Error ? caught.message : "Processing failed";
     error.hidden = false;

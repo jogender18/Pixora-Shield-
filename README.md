@@ -13,6 +13,13 @@ produces an MP4 with those regions blurred.
 - `backend/requirements.txt` - Python dependencies
 - `backend/models/` - Detection model files
 
+The processing pipeline includes face-region blurring, optional YOLO plate
+detection, OCR-based PII text pattern detection, and IoU region stabilization
+between frames. Set `PLATE_MODEL_PATH` to a YOLO weights file and ensure the
+Tesseract executable is installed for PII OCR.
+For YOLO plate detection, install the optional package with
+`pip install ultralytics`.
+
 ## Run locally
 
 Backend:
