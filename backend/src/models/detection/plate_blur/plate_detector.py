@@ -33,18 +33,18 @@ class PlateDetector:
         frame_area = height * width
         for contour in contours:
             x, y, box_width, box_height = cv2.boundingRect(contour)
-            if box_width < 70 or box_height < 20:
+            if box_width < 45 or box_height < 14:
                 continue
 
             aspect = box_width / float(box_height)
             area = box_width * box_height
-            if not 2.2 <= aspect <= 6.0:
+            if not 2.0 <= aspect <= 7.5:
                 continue
-            if not 0.0008 * frame_area <= area <= 0.06 * frame_area:
+            if not 0.0003 * frame_area <= area <= 0.12 * frame_area:
                 continue
 
             contour_area = cv2.contourArea(contour)
-            if contour_area / max(area, 1) < 0.25:
+            if contour_area / max(area, 1) < 0.12:
                 continue
 
             roi = gray[y:y + box_height, x:x + box_width]
@@ -52,26 +52,7 @@ class PlateDetector:
                 continue
 
             roi_std = float(cv2.meanStdDev(roi)[1][0][0])
-            if roi_std < 18:
-                continue
-
-            _, threshold = cv2.threshold(
-                roi,
-                0,
-                255,
-                cv2.THRESH_BINARY + cv2.THRESH_OTSU,
-            )
-            text_contours, _ = cv2.findContours(
-                threshold,
-                cv2.RETR_EXTERNAL,
-                cv2.CHAIN_APPROX_SIMPLE,
-            )
-            text_parts = 0
-            for text_contour in text_contours:
-                tx, ty, tw, th = cv2.boundingRect(text_contour)
-                if 3 <= tw <= box_width * 0.22 and 5 <= th <= box_height * 0.75:
-                    text_parts += 1
-            if text_parts < 3:
+            if roi_std < 8:
                 continue
 
             padding_x = int(box_width * 0.03)
