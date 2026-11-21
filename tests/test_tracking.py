@@ -5,10 +5,26 @@ import numpy as np
 
 sys.path.insert(0, str(Path(__file__).resolve().parents[1] / "backend"))
 
-from backend.app import RegionTracker, is_visible_face, overlap_ratio
+from backend.app import (
+    RegionTracker,
+    is_visible_face,
+    overlap_ratio,
+    select_main_face,
+)
 
 
 class RegionTrackerTest(unittest.TestCase):
+    def test_main_face_remains_locked_to_nearest_previous_face(self):
+        tracker = RegionTracker(max_missed=10, match_threshold=0.12, smooth=0.45)
+        tracker.update([[100, 100, 220, 220]])
+
+        main_face = select_main_face(
+            [[115, 105, 225, 215], [700, 120, 790, 210]],
+            tracker,
+            1280,
+        )
+
+        self.assertLess(main_face[0], 300)
     def test_visible_face_filter_rejects_partial_or_tiny_faces(self):
         frame = np.zeros((720, 1280, 3), dtype=np.uint8)
 

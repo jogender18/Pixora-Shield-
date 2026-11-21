@@ -159,6 +159,29 @@ def overlap_ratio(first, second):
     return intersection / min(first_area, second_area)
 
 
+def select_main_face(detections, tracker, frame_width):
+    if not detections:
+        return None
+    if not tracker.tracks:
+        return max(
+            detections,
+            key=lambda box: (box[2] - box[0]) * (box[3] - box[1]),
+        )
+
+    predicted = tracker.tracks[0]["predicted"]
+    predicted_cx = (predicted[0] + predicted[2]) / 2
+    predicted_cy = (predicted[1] + predicted[3]) / 2
+
+    def score(box):
+        cx = (box[0] + box[2]) / 2
+        cy = (box[1] + box[3]) / 2
+        distance = ((cx - predicted_cx) ** 2 + (cy - predicted_cy) ** 2) ** 0.5
+        normalized_distance = distance / max(frame_width, 1)
+        return overlap_ratio(predicted, box) - normalized_distance
+
+    return max(detections, key=score)
+
+
 class RegionTracker:
     def __init__(self, max_missed=12, match_threshold=0.18, smooth=0.55):
         self.tracks = []
@@ -336,25 +359,11 @@ def process_video():
                 min(width, x2 + pad_x),
                 min(height, y2 + pad_y),
             ])
-        main_face = None
-        if padded_face_regions:
-            if not main_face_tracker.tracks:
-                main_face = max(
-                    padded_face_regions,
-                    key=lambda box: (box[2] - box[0]) * (box[3] - box[1]),
-                )
-            else:
-                predicted = main_face_tracker.tracks[0]["predicted"]
-                main_face = max(
-                    padded_face_regions,
-                    key=lambda box: (
-                        overlap_ratio(predicted, box)
-                        - abs(
-                            (box[0] + box[2]) / 2
-                            - (predicted[0] + predicted[2]) / 2
-                        ) / max(width, 1)
-                    ),
-                )
+        main_face = select_main_face(
+            padded_face_regions,
+            main_face_tracker,
+            width,
+        )
         main_faces = main_face_tracker.update([main_face] if main_face else [])
         main_face = main_faces[0] if main_faces else None
 
