@@ -10,7 +10,7 @@ class PlateDetector:
         self.model = None
         self.previous_regions = []
         self.missed_frames = 0
-        self.max_missed_frames = 15
+        self.max_missed_frames = 5
         if self.weights_path and Path(self.weights_path).is_file():
             try:
                 from ultralytics import YOLO

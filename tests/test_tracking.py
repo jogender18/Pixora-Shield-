@@ -10,10 +10,19 @@ from backend.app import (
     is_visible_face,
     overlap_ratio,
     select_main_face,
+    deduplicate_blur_regions,
 )
 
 
 class RegionTrackerTest(unittest.TestCase):
+    def test_deduplicates_overlapping_extra_blur_regions(self):
+        regions = deduplicate_blur_regions([
+            [100, 100, 200, 200],
+            [105, 105, 205, 205],
+            [500, 100, 600, 200],
+        ])
+
+        self.assertEqual(len(regions), 2)
     def test_main_face_remains_locked_to_nearest_previous_face(self):
         tracker = RegionTracker(max_missed=10, match_threshold=0.12, smooth=0.45)
         tracker.update([[100, 100, 220, 220]])

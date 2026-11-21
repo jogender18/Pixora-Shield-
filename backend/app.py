@@ -99,6 +99,8 @@ def detect_faces(frame):
 
 
 def detect_pii_regions(frame, frame_id):
+    if os.getenv("PII_DETECTION_ENABLED", "false").lower() not in ("1", "true", "yes"):
+        return []
     if pytesseract is None or frame_id % 30 != 0:
         return []
 
@@ -157,6 +159,21 @@ def overlap_ratio(first, second):
     first_area = max(1, (x2 - x1) * (y2 - y1))
     second_area = max(1, (px2 - px1) * (py2 - py1))
     return intersection / min(first_area, second_area)
+
+
+def deduplicate_blur_regions(regions, overlap_threshold=0.48):
+    kept = []
+    for region in sorted(
+        regions,
+        key=lambda box: max(1, (box[2] - box[0]) * (box[3] - box[1]))
+        * -1,
+    ):
+        if not any(
+            overlap_ratio(region, existing) >= overlap_threshold
+            for existing in kept
+        ):
+            kept.append(region)
+    return kept
 
 
 def select_main_face(detections, tracker, frame_width):
@@ -317,7 +334,7 @@ class RegionTracker:
         return [track["predicted"].copy() for track in self.tracks]
 
 
-face_tracker = RegionTracker(max_missed=10, match_threshold=0.12, smooth=0.45)
+face_tracker = RegionTracker(max_missed=4, match_threshold=0.12, smooth=0.45)
 main_face_tracker = RegionTracker(max_missed=15, match_threshold=0.08, smooth=0.35)
 
 
@@ -413,6 +430,7 @@ def process_video():
         _, plate_regions = plate_detector.process_frame(frame, frame_id)
         pii_regions = detect_pii_regions(frame, frame_id)
         regions = face_regions + plate_regions + pii_regions
+        regions = deduplicate_blur_regions(regions)
         detected_regions += len(regions)
         plate_regions_detected += len(plate_regions)
         pii_regions_detected += len(pii_regions)
