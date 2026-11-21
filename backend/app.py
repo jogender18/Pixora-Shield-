@@ -125,6 +125,114 @@ def stabilize_regions(previous_regions, current_regions, iou_threshold=0.55):
     return stabilized
 
 
+class RegionTracker:
+    def __init__(self, max_missed=12, match_threshold=0.18, smooth=0.55):
+        self.tracks = []
+        self.next_id = 1
+        self.max_missed = max_missed
+        self.match_threshold = match_threshold
+        self.smooth = smooth
+
+    def reset(self):
+        self.tracks = []
+        self.next_id = 1
+
+    @staticmethod
+    def iou(first, second):
+        x1, y1, x2, y2 = first
+        px1, py1, px2, py2 = second
+        ix1, iy1 = max(x1, px1), max(y1, py1)
+        ix2, iy2 = min(x2, px2), min(y2, py2)
+        intersection = max(0, ix2 - ix1) * max(0, iy2 - iy1)
+        area = max(1, (x2 - x1) * (y2 - y1))
+        previous_area = max(1, (px2 - px1) * (py2 - py1))
+        return intersection / (area + previous_area - intersection)
+
+    @staticmethod
+    def center(box):
+        return (
+            (box[0] + box[2]) / 2,
+            (box[1] + box[3]) / 2,
+        )
+
+    def update(self, detections):
+        available = set(range(len(self.tracks)))
+        matches = []
+
+        for detection in detections:
+            best_track = None
+            best_score = self.match_threshold
+            dcx, dcy = self.center(detection)
+            for index in available:
+                track = self.tracks[index]
+                predicted = track["predicted"]
+                score = self.iou(predicted, detection)
+                tcx, tcy = self.center(predicted)
+                distance = ((dcx - tcx) ** 2 + (dcy - tcy) ** 2) ** 0.5
+                scale = max(1, (predicted[2] - predicted[0]) + (predicted[3] - predicted[1]))
+                score -= distance / scale * 0.08
+                if score >= best_score:
+                    best_score = score
+                    best_track = index
+
+            if best_track is not None:
+                available.remove(best_track)
+                matches.append((best_track, detection))
+            else:
+                matches.append((None, detection))
+
+        for index, detection in matches:
+            if index is None:
+                self.tracks.append({
+                    "id": self.next_id,
+                    "box": detection,
+                    "predicted": detection,
+                    "velocity": [0.0, 0.0],
+                    "missed": 0,
+                })
+                self.next_id += 1
+            else:
+                track = self.tracks[index]
+                previous = track["box"]
+                vx = (detection[0] - previous[0]) * 0.6
+                vy = (detection[1] - previous[1]) * 0.6
+                box = [
+                    int(previous[i] * (1 - self.smooth) + detection[i] * self.smooth)
+                    for i in range(4)
+                ]
+                track["velocity"] = [
+                    track["velocity"][0] * 0.45 + vx,
+                    track["velocity"][1] * 0.45 + vy,
+                ]
+                track["box"] = box
+                track["predicted"] = [
+                    int(box[0] + track["velocity"][0]),
+                    int(box[1] + track["velocity"][1]),
+                    int(box[2] + track["velocity"][0]),
+                    int(box[3] + track["velocity"][1]),
+                ]
+                track["missed"] = 0
+
+        for index in available:
+            track = self.tracks[index]
+            box = track["predicted"]
+            track["box"] = box
+            track["predicted"] = [
+                int(box[0] + track["velocity"][0]),
+                int(box[1] + track["velocity"][1]),
+                int(box[2] + track["velocity"][0]),
+                int(box[3] + track["velocity"][1]),
+            ]
+            track["missed"] += 1
+
+        self.tracks = [track for track in self.tracks if track["missed"] <= self.max_missed]
+
+        return [track["predicted"].copy() for track in self.tracks]
+
+
+face_tracker = RegionTracker(max_missed=10, match_threshold=0.12, smooth=0.45)
+
+
 @app.get("/api/health")
 def health():
     return jsonify({
@@ -145,6 +253,7 @@ def process_video():
 
     job_id = uuid.uuid4().hex
     plate_detector.reset()
+    face_tracker.reset()
     input_path = UPLOAD_DIR / f"{job_id}_{video.filename}"
     output_name = f"{job_id}_protected.mp4"
     output_path = OUTPUT_DIR / output_name
@@ -174,7 +283,6 @@ def process_video():
     processed_frames = 0
     detected_regions = 0
     frame_id = 0
-    previous_face_regions = []
     pii_regions_detected = 0
     plate_regions_detected = 0
     while True:
@@ -182,8 +290,17 @@ def process_video():
         if not ok:
             break
         face_regions = detect_faces(frame)
-        face_regions = stabilize_regions(previous_face_regions, face_regions)
-        previous_face_regions = face_regions
+        padded_face_regions = []
+        for x1, y1, x2, y2 in face_regions:
+            pad_x = int((x2 - x1) * 0.10)
+            pad_y = int((y2 - y1) * 0.16)
+            padded_face_regions.append([
+                max(0, x1 - pad_x),
+                max(0, y1 - pad_y),
+                min(width, x2 + pad_x),
+                min(height, y2 + pad_y),
+            ])
+        face_regions = face_tracker.update(padded_face_regions)
         _, plate_regions = plate_detector.process_frame(frame, frame_id)
         pii_regions = detect_pii_regions(frame, frame_id)
         regions = face_regions + plate_regions + pii_regions

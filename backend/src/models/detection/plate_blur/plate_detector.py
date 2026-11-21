@@ -10,7 +10,7 @@ class PlateDetector:
         self.model = None
         self.previous_regions = []
         self.missed_frames = 0
-        self.max_missed_frames = 3
+        self.max_missed_frames = 15
         if self.weights_path and Path(self.weights_path).is_file():
             try:
                 from ultralytics import YOLO
@@ -97,8 +97,7 @@ class PlateDetector:
             regions = self._yolo_regions(frame)
 
         if regions:
-            matched, unmatched_previous = self._match_regions(regions)
-            regions = matched
+            regions = self._smooth_regions(regions)
             self.previous_regions = regions
             self.missed_frames = 0
         elif self.previous_regions and self.missed_frames < self.max_missed_frames:
@@ -133,15 +132,15 @@ class PlateDetector:
                 ])
         return rectangles
 
-    def _match_regions(self, regions):
+    def _smooth_regions(self, regions):
         if not self.previous_regions:
-            return regions, []
+            return regions
 
         matched = []
         unmatched_previous = list(self.previous_regions)
         for region in regions:
             best_previous = None
-            best_iou = 0.45
+            best_iou = 0.20
             x1, y1, x2, y2 = region
             for previous in self.previous_regions:
                 px1, py1, px2, py2 = previous
@@ -166,4 +165,7 @@ class PlateDetector:
             else:
                 matched.append(region)
 
-        return matched, unmatched_previous
+        for previous in unmatched_previous:
+            if self.missed_frames < self.max_missed_frames:
+                matched.append(previous)
+        return matched[:3]
