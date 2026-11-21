@@ -31,6 +31,20 @@ class PlateDetectorTest(unittest.TestCase):
             )
         )
 
+    def test_plate_region_stays_blurred_when_detection_misses_one_frame(self):
+        detector = PlateDetector()
+        plate_frame = np.full((480, 640, 3), 220, dtype=np.uint8)
+        cv2.rectangle(plate_frame, (220, 300), (420, 350), (20, 20, 20), -1)
+
+        _, first_regions = detector.process_frame(plate_frame, 0)
+        _, missed_regions = detector.process_frame(
+            np.full((480, 640, 3), 220, dtype=np.uint8),
+            1,
+        )
+
+        self.assertTrue(first_regions)
+        self.assertEqual(missed_regions, first_regions)
+
 
 if __name__ == "__main__":
     unittest.main()

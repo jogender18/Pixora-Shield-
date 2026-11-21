@@ -144,6 +144,7 @@ def process_video():
         return jsonify({"error": "Unsupported video format"}), 400
 
     job_id = uuid.uuid4().hex
+    plate_detector.reset()
     input_path = UPLOAD_DIR / f"{job_id}_{video.filename}"
     output_name = f"{job_id}_protected.mp4"
     output_path = OUTPUT_DIR / output_name
@@ -174,7 +175,6 @@ def process_video():
     detected_regions = 0
     frame_id = 0
     previous_face_regions = []
-    previous_plate_regions = []
     pii_regions_detected = 0
     plate_regions_detected = 0
     while True:
@@ -185,8 +185,6 @@ def process_video():
         face_regions = stabilize_regions(previous_face_regions, face_regions)
         previous_face_regions = face_regions
         _, plate_regions = plate_detector.process_frame(frame, frame_id)
-        plate_regions = stabilize_regions(previous_plate_regions, plate_regions)
-        previous_plate_regions = plate_regions
         pii_regions = detect_pii_regions(frame, frame_id)
         regions = face_regions + plate_regions + pii_regions
         detected_regions += len(regions)

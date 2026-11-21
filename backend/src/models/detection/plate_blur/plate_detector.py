@@ -8,6 +8,9 @@ class PlateDetector:
         self.weights_path = weights_path or os.getenv("PLATE_MODEL_PATH")
         self.conf_thresh = conf_thresh
         self.model = None
+        self.previous_regions = []
+        self.missed_frames = 0
+        self.max_missed_frames = 8
         if self.weights_path and Path(self.weights_path).is_file():
             try:
                 from ultralytics import YOLO
@@ -58,9 +61,33 @@ class PlateDetector:
         ), reverse=True)
         return regions[:8]
 
+    def reset(self):
+        self.previous_regions = []
+        self.missed_frames = 0
+
     def process_frame(self, frame, frame_id):
         if self.model is None:
-            return frame_id, self.fallback_regions(frame)
+            regions = self.fallback_regions(frame)
+        else:
+            regions = self._yolo_regions(frame)
+
+        if regions:
+            matched, unmatched_previous = self._match_regions(regions)
+            regions = matched
+            self.previous_regions = regions
+            self.missed_frames = 0
+        elif self.previous_regions and self.missed_frames < self.max_missed_frames:
+            regions = self.previous_regions
+            self.missed_frames += 1
+        else:
+            regions = []
+            self.previous_regions = []
+
+        return frame_id, regions
+
+    def _yolo_regions(self, frame):
+        if self.model is None:
+            return []
 
         results = self.model.predict(
             source=frame,
@@ -79,4 +106,39 @@ class PlateDetector:
                     int(x2),
                     int(y2),
                 ])
-        return frame_id, rectangles
+        return rectangles
+
+    def _match_regions(self, regions):
+        if not self.previous_regions:
+            return regions, []
+
+        matched = []
+        unmatched_previous = list(self.previous_regions)
+        for region in regions:
+            best_previous = None
+            best_iou = 0.45
+            x1, y1, x2, y2 = region
+            for previous in self.previous_regions:
+                px1, py1, px2, py2 = previous
+                ix1, iy1 = max(x1, px1), max(y1, py1)
+                ix2, iy2 = min(x2, px2), min(y2, py2)
+                intersection = max(0, ix2 - ix1) * max(0, iy2 - iy1)
+                area = max(1, (x2 - x1) * (y2 - y1))
+                previous_area = max(1, (px2 - px1) * (py2 - py1))
+                iou = intersection / (area + previous_area - intersection)
+                if iou >= best_iou:
+                    best_iou = iou
+                    best_previous = previous
+
+            if best_previous is not None:
+                nx1 = int((x1 + best_previous[0]) // 2)
+                ny1 = int((y1 + best_previous[1]) // 2)
+                nx2 = int((x2 + best_previous[2]) // 2)
+                ny2 = int((y2 + best_previous[3]) // 2)
+                matched.append([nx1, ny1, nx2, ny2])
+                if best_previous in unmatched_previous:
+                    unmatched_previous.remove(best_previous)
+            else:
+                matched.append(region)
+
+        return matched, unmatched_previous
