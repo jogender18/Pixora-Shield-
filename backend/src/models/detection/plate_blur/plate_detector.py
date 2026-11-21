@@ -114,6 +114,69 @@ class PlateDetector:
         self.previous_regions = []
         self.missed_frames = 0
 
+    def _valid_plate_region(self, frame, region):
+        height, width = frame.shape[:2]
+        x1, y1, x2, y2 = (
+            max(0, int(value))
+            for value in region
+        )
+        x1, y1 = min(x1, width), min(y1, height)
+        x2, y2 = min(x2, width), min(y2, height)
+        box_width = max(0, x2 - x1)
+        box_height = max(0, y2 - y1)
+        if box_width < 70 or box_height < 16:
+            return None
+
+        aspect = box_width / float(box_height)
+        area = box_width * box_height
+        frame_area = width * height
+        if not 2.8 <= aspect <= 6.5:
+            return None
+        if not 0.0005 * frame_area <= area <= 0.07 * frame_area:
+            return None
+        if box_width > width * 0.45 or box_height > height * 0.20:
+            return None
+        return [x1, y1, x2, y2]
+
+    def _normalize_regions(self, frame, regions):
+        normalized = []
+        frame_area = frame.shape[0] * frame.shape[1]
+        for region in regions:
+            box = self._valid_plate_region(frame, region)
+            if box is None:
+                continue
+            x1, y1, x2, y2 = box
+            area = (x2 - x1) * (y2 - y1)
+            if area <= frame_area * 0.07:
+                normalized.append(box)
+
+        normalized.sort(
+            key=lambda region: (
+                (region[2] - region[0]) * (region[3] - region[1])
+            ),
+            reverse=True,
+        )
+        filtered = []
+        for region in normalized:
+            duplicate = False
+            x1, y1, x2, y2 = region
+            for kept in filtered:
+                px1, py1, px2, py2 = kept
+                ix1 = max(x1, px1)
+                iy1 = max(y1, py1)
+                ix2 = min(x2, px2)
+                iy2 = min(y2, py2)
+                intersection = max(0, ix2 - ix1) * max(0, iy2 - iy1)
+                region_area = max(1, (x2 - x1) * (y2 - y1))
+                kept_area = max(1, (px2 - px1) * (py2 - py1))
+                iou = intersection / (region_area + kept_area - intersection)
+                if iou > 0.25:
+                    duplicate = True
+                    break
+            if not duplicate:
+                filtered.append(region)
+        return filtered[:3]
+
     def process_frame(self, frame, frame_id):
         if self.model is None:
             regions = self.fallback_regions(frame)
@@ -154,7 +217,7 @@ class PlateDetector:
                     int(x2),
                     int(y2),
                 ])
-        return rectangles
+        return self._normalize_regions(frame, rectangles)
 
     def _smooth_regions(self, regions):
         if not self.previous_regions:

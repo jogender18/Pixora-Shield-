@@ -6,6 +6,15 @@ from backend.src.models.detection.plate_blur.plate_detector import PlateDetector
 
 
 class PlateDetectorTest(unittest.TestCase):
+    def test_plate_filter_rejects_whole_car_region(self):
+        frame = np.full((720, 1280, 3), 180, dtype=np.uint8)
+        regions = PlateDetector()._normalize_regions(
+            frame,
+            [[150, 250, 1050, 600]],
+        )
+
+        self.assertFalse(regions)
+
     def test_fallback_rejects_square_screen_candidate(self):
         frame = np.full((720, 1280, 3), 180, dtype=np.uint8)
         cv2.rectangle(frame, (300, 350), (500, 550), (30, 30, 30), -1)
