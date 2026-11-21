@@ -1,13 +1,20 @@
 import unittest
 import sys
 from pathlib import Path
+import numpy as np
 
 sys.path.insert(0, str(Path(__file__).resolve().parents[1] / "backend"))
 
-from backend.app import RegionTracker, overlap_ratio
+from backend.app import RegionTracker, is_visible_face, overlap_ratio
 
 
 class RegionTrackerTest(unittest.TestCase):
+    def test_visible_face_filter_rejects_partial_or_tiny_faces(self):
+        frame = np.zeros((720, 1280, 3), dtype=np.uint8)
+
+        self.assertTrue(is_visible_face(frame, [500, 150, 650, 300]))
+        self.assertFalse(is_visible_face(frame, [10, 10, 30, 30]))
+        self.assertFalse(is_visible_face(frame, [500, 150, 700, 210]))
     def test_excludes_overlapping_main_face_from_blur_tracks(self):
         main_face = [100, 100, 200, 220]
         other_face = [300, 110, 390, 220]

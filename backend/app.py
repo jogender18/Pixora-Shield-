@@ -61,6 +61,18 @@ PII_PATTERNS = (
 )
 
 
+def is_visible_face(frame, box):
+    height, width = frame.shape[:2]
+    x1, y1, x2, y2 = box
+    box_width = max(0, x2 - x1)
+    box_height = max(0, y2 - y1)
+    if box_width < 48 or box_height < 48:
+        return False
+    frame_ratio = (box_width * box_height) / float(width * height)
+    aspect_ratio = box_width / float(box_height)
+    return frame_ratio >= 0.0015 and 0.72 <= aspect_ratio <= 1.28
+
+
 def detect_faces(frame):
     if face_detector is None or face_detector.empty():
         return []
@@ -69,10 +81,21 @@ def detect_faces(frame):
     faces = face_detector.detectMultiScale(
         gray,
         scaleFactor=1.1,
-        minNeighbors=5,
-        minSize=(24, 24),
+        minNeighbors=7,
+        minSize=(48, 48),
+        flags=cv2.CASCADE_SCALE_IMAGE,
     )
-    return [[int(x), int(y), int(x + w), int(y + h)] for (x, y, w, h) in faces]
+    height, width = frame.shape[:2]
+    visible_faces = []
+    for (x, y, w, h) in faces:
+        frame_ratio = (w * h) / float(width * height)
+        aspect_ratio = w / float(h)
+        if frame_ratio < 0.0015:
+            continue
+        if not 0.72 <= aspect_ratio <= 1.28:
+            continue
+        visible_faces.append([int(x), int(y), int(x + w), int(y + h)])
+    return visible_faces
 
 
 def detect_pii_regions(frame, frame_id):
