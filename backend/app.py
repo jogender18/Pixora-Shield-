@@ -125,6 +125,17 @@ def stabilize_regions(previous_regions, current_regions, iou_threshold=0.55):
     return stabilized
 
 
+def overlap_ratio(first, second):
+    x1, y1, x2, y2 = first
+    px1, py1, px2, py2 = second
+    ix1, iy1 = max(x1, px1), max(y1, py1)
+    ix2, iy2 = min(x2, px2), min(y2, py2)
+    intersection = max(0, ix2 - ix1) * max(0, iy2 - iy1)
+    first_area = max(1, (x2 - x1) * (y2 - y1))
+    second_area = max(1, (px2 - px1) * (py2 - py1))
+    return intersection / min(first_area, second_area)
+
+
 class RegionTracker:
     def __init__(self, max_missed=12, match_threshold=0.18, smooth=0.55):
         self.tracks = []
@@ -231,6 +242,7 @@ class RegionTracker:
 
 
 face_tracker = RegionTracker(max_missed=10, match_threshold=0.12, smooth=0.45)
+main_face_tracker = RegionTracker(max_missed=15, match_threshold=0.08, smooth=0.35)
 
 
 @app.get("/api/health")
@@ -254,6 +266,7 @@ def process_video():
     job_id = uuid.uuid4().hex
     plate_detector.reset()
     face_tracker.reset()
+    main_face_tracker.reset()
     input_path = UPLOAD_DIR / f"{job_id}_{video.filename}"
     output_name = f"{job_id}_protected.mp4"
     output_path = OUTPUT_DIR / output_name
@@ -300,6 +313,33 @@ def process_video():
                 min(width, x2 + pad_x),
                 min(height, y2 + pad_y),
             ])
+        main_face = None
+        if padded_face_regions:
+            if not main_face_tracker.tracks:
+                main_face = max(
+                    padded_face_regions,
+                    key=lambda box: (box[2] - box[0]) * (box[3] - box[1]),
+                )
+            else:
+                predicted = main_face_tracker.tracks[0]["predicted"]
+                main_face = max(
+                    padded_face_regions,
+                    key=lambda box: (
+                        overlap_ratio(predicted, box)
+                        - abs(
+                            (box[0] + box[2]) / 2
+                            - (predicted[0] + predicted[2]) / 2
+                        ) / max(width, 1)
+                    ),
+                )
+        main_faces = main_face_tracker.update([main_face] if main_face else [])
+        main_face = main_faces[0] if main_faces else None
+
+        if main_face is not None:
+            padded_face_regions = [
+                box for box in padded_face_regions
+                if overlap_ratio(main_face, box) < 0.40
+            ]
         face_regions = face_tracker.update(padded_face_regions)
         _, plate_regions = plate_detector.process_frame(frame, frame_id)
         pii_regions = detect_pii_regions(frame, frame_id)
@@ -326,7 +366,8 @@ def process_video():
             f"Processed {processed_frames} frames: "
             f"{detected_regions} privacy regions, "
             f"{plate_regions_detected} plate detections, "
-            f"and {pii_regions_detected} PII text detections."
+            f"{pii_regions_detected} PII text detections. "
+            "The main person remains clear; secondary people are blurred."
         ),
         "metrics": {
             "frames": processed_frames,
