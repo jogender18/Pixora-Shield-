@@ -182,6 +182,36 @@ def select_main_face(detections, tracker, frame_width):
     return max(detections, key=score)
 
 
+def find_largest_opening_face(capture, width, height, max_frames=90, step=3):
+    largest_face = None
+    largest_area = 0
+    frame_id = 0
+
+    while frame_id < max_frames:
+        ok, frame = capture.read()
+        if not ok:
+            break
+        if frame_id % step == 0:
+            faces = detect_faces(frame)
+            for x1, y1, x2, y2 in faces:
+                pad_x = int((x2 - x1) * 0.10)
+                pad_y = int((y2 - y1) * 0.16)
+                box = [
+                    max(0, x1 - pad_x),
+                    max(0, y1 - pad_y),
+                    min(width, x2 + pad_x),
+                    min(height, y2 + pad_y),
+                ]
+                area = (box[2] - box[0]) * (box[3] - box[1])
+                if area > largest_area:
+                    largest_area = area
+                    largest_face = box
+        frame_id += 1
+
+    capture.set(cv2.CAP_PROP_POS_FRAMES, 0)
+    return largest_face
+
+
 class RegionTracker:
     def __init__(self, max_missed=12, match_threshold=0.18, smooth=0.55):
         self.tracks = []
@@ -327,6 +357,13 @@ def process_video():
     width = int(capture.get(cv2.CAP_PROP_FRAME_WIDTH))
     height = int(capture.get(cv2.CAP_PROP_FRAME_HEIGHT))
     total_frames = int(capture.get(cv2.CAP_PROP_FRAME_COUNT))
+    locked_main_face = find_largest_opening_face(
+        capture,
+        width,
+        height,
+    )
+    if locked_main_face is not None:
+        main_face_tracker.update([locked_main_face])
     writer = cv2.VideoWriter(
         str(output_path),
         cv2.VideoWriter_fourcc(*"mp4v"),
